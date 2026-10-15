@@ -10,7 +10,11 @@ Technology constraints follow the
 |---|---|
 | `npm ci` | Install exact dependencies from `package-lock.json` |
 | `npm run dev` | Start the Vite dev server |
+| `npm run lint:install` | One-time install of the isolated ESLint toolchain (`tools/lint`) |
+| `npm run lint` | ESLint (TypeScript, React Hooks, jsx-a11y, Testing Library rules) |
 | `npm run typecheck` | Type-check without emitting |
+| `npm test` | Run the Vitest + React Testing Library suite once |
+| `npm run test:watch` | Vitest in watch mode |
 | `npm run build` | Typecheck and build to `dist/` |
 | `npm run preview` | Serve the production build locally |
 | `npm run contract:generate` | Regenerate `src/contract/` from the pinned API contract |
@@ -45,6 +49,31 @@ missing, hand-modified, or stale relative to the lock.
 4. `npm run build` to confirm the app still compiles against the new types.
 5. Commit the lock file and `src/contract/` together. Breaking contract
    changes need Frontend review per ADR-014.
+
+## Testing and CI
+
+Component tests use Vitest with React Testing Library in jsdom; Jest is not
+used (Testing Strategy, Technology Baseline). Tests live next to the code as
+`*.test.ts(x)`, query by accessible role/name, and avoid internal structure.
+Setup is in `src/test/setup.ts`. No coverage threshold is enforced.
+
+ESLint lives in `tools/lint`, a standalone npm project with its own lockfile,
+because typescript-eslint supports TypeScript <6.1 and the app uses
+TypeScript 7. Run `npm run lint:install` once before `npm run lint`.
+
+The **CI** workflow runs on every pull request (and pushes to `main`) as four
+independent jobs whose names are the status-check contexts:
+`CI / lint`, `CI / typecheck`, `CI / test`, `CI / build`. The existing
+`Contract drift / contract-drift` workflow is unchanged.
+
+### Required checks for `main` (manual GitHub setting)
+
+Requiring checks is repository configuration, not code. In *Settings →
+Branches* (or *Rulesets*) add a rule for `main` with **Require status checks
+to pass before merging** and select `CI / lint`, `CI / typecheck`,
+`CI / test`, `CI / build` and `Contract drift / contract-drift` (a check can
+be selected only after it has run once). Until that is done the checks report
+failures but do not block merging.
 
 ## Styling
 
