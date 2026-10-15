@@ -1,0 +1,26 @@
+name: Contract drift
+
+# Standalone, path-independent check. Frontend#4 can add its own CI workflow
+# alongside this one, or call this job as a required status check
+# ("Contract drift / contract-drift"), without changes here.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  contract-drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Regenerate from pinned Documentation revision and compare
+        run: npm run contract:check

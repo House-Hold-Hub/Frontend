@@ -10,7 +10,10 @@
     "dev": "vite",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "npm run typecheck && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "contract:generate": "npm run generate -w tools/contract",
+    "contract:check": "npm run check -w tools/contract",
+    "generate": "node generate.mjs generate"
   },
   "dependencies": {
     "react": "^19.3.1",
@@ -22,5 +25,8 @@
     "@vitejs/plugin-react": "^6.1.2",
     "typescript": "^7.0.2",
     "vite": "^8.3.4"
-  }
+  },
+  "workspaces": [
+    "tools/contract"
+  ]
 }
