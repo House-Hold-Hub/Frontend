@@ -13,6 +13,38 @@ Technology constraints follow the
 | `npm run typecheck` | Type-check without emitting |
 | `npm run build` | Typecheck and build to `dist/` |
 | `npm run preview` | Serve the production build locally |
+| `npm run contract:generate` | Regenerate `src/contract/` from the pinned API contract |
+| `npm run contract:check` | Fail if `src/contract/` is missing or differs from regeneration |
+
+## API contract types
+
+`src/contract/` holds TypeScript types generated from the Documentation-owned
+[`api/openapi.yaml`](https://github.com/House-Hold-Hub/Documentation/blob/main/api/openapi.yaml)
+(ADR-009, ADR-014). Only types are generated, not an HTTP client. Never edit
+these files by hand.
+
+- `schema.ts` — `paths`, `components`, `operations` types (openapi-typescript).
+- `revision.ts` — `CONTRACT_REVISION` and related constants; the same
+  revision, spec SHA-256 and generator version are in each file's header.
+
+The source is pinned to an immutable Documentation commit SHA in
+[`tools/contract/contract.lock.json`](tools/contract/contract.lock.json). The
+generator lives in the `tools/contract` npm workspace because openapi-typescript
+needs the TypeScript 5 compiler API while the app uses TypeScript 7; its
+version is locked in `package-lock.json`.
+
+The **Contract drift** GitHub Actions workflow runs `npm run contract:check`,
+which regenerates from the pinned revision and fails if a generated file is
+missing, hand-modified, or stale relative to the lock.
+
+### Updating the contract revision
+
+1. Pick the new Documentation commit SHA (the full 40 characters, from `main`).
+2. Set `commit` in `tools/contract/contract.lock.json`.
+3. `npm run contract:generate`
+4. `npm run build` to confirm the app still compiles against the new types.
+5. Commit the lock file and `src/contract/` together. Breaking contract
+   changes need Frontend review per ADR-014.
 
 ## Styling
 

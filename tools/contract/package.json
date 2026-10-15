@@ -1,0 +1,15 @@
+{
+  "name": "@household/contract-tools",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Generates TypeScript contract types from the Documentation OpenAPI spec. Isolated as a workspace because openapi-typescript needs the TypeScript 5 compiler API, while the app uses TypeScript 7.",
+  "devDependencies": {
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3"
+  },
+  "scripts": {
+    "generate": "node generate.mjs generate",
+    "check": "node generate.mjs check"
+  }
+}

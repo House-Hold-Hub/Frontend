@@ -1,6 +1,7 @@
 FROM node:22-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
+COPY tools/contract/package.json tools/contract/package.json
 RUN npm ci
 COPY . .
 # VITE_* values are public and baked into the bundle at build time.
