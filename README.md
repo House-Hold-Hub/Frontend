@@ -62,18 +62,18 @@ because typescript-eslint supports TypeScript <6.1 and the app uses
 TypeScript 7. Run `npm run lint:install` once before `npm run lint`.
 
 The **CI** workflow runs on every pull request (and pushes to `main`) as four
-independent jobs whose names are the status-check contexts:
-`CI / lint`, `CI / typecheck`, `CI / test`, `CI / build`. The existing
-`Contract drift / contract-drift` workflow is unchanged.
+independent jobs: `lint`, `typecheck`, `test` and `build`. The existing
+**Contract drift** workflow (job `contract-drift`) is unchanged.
 
-### Required checks for `main` (manual GitHub setting)
+### Required checks for `main`
 
-Requiring checks is repository configuration, not code. In *Settings →
-Branches* (or *Rulesets*) add a rule for `main` with **Require status checks
-to pass before merging** and select `CI / lint`, `CI / typecheck`,
-`CI / test`, `CI / build` and `Contract drift / contract-drift` (a check can
-be selected only after it has run once). Until that is done the checks report
-failures but do not block merging.
+Branch protection on `main` requires a pull request (no approving reviews
+required), applies to administrators, and requires these status-check contexts
+before merging: `lint`, `typecheck`, `test`, `build` and `contract-drift`.
+The contexts are the bare job names as GitHub reports them; the
+`CI / ` and `Contract drift / ` prefixes in the Actions UI are display-only and
+must not be used. Renaming a job changes its context and requires updating the
+protection rule.
 
 ## Styling
 
