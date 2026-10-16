@@ -1,0 +1,7 @@
+title = "synthetic fixture rule"
+[extend]
+useDefault = true
+[[rules]]
+id = "hhh-fixture-marker"
+description = "Synthetic marker used only to test the gate"
+regex = '''HHH-FIXTURE-MARKER-[A-Z0-9]{16}'''
