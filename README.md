@@ -65,11 +65,53 @@ The **CI** workflow runs on every pull request (and pushes to `main`) as four
 independent jobs: `lint`, `typecheck`, `test` and `build`. The existing
 **Contract drift** workflow (job `contract-drift`) is unchanged.
 
+### Security gates
+
+The **Gates** workflow (`.github/workflows/gates.yml`, pull requests and pushes
+to `main`, no path filters, `contents: read`, no secrets) calls the shared
+reusable workflows from Automation (Automation#2), pinned to Automation `main`
+commit `5eeae49dfbef5c30fadb4d2ab8a83db068c01488`:
+
+- `Secret scan / scan`: Gitleaks over the commits a pull request adds (the full
+  history on pushes to `main`). A `.gitleaks.toml` in the repository root, if
+  present, is used.
+- `Dependency security / scan`: OSV-Scanner over `package-lock.json` and
+  `tools/lint/package-lock.json` (`tools/contract` has no lockfile). Any known
+  vulnerability fails the check; there is no severity threshold or exception list.
+
+Both are required status checks on `main`, in addition to the five above.
+OpenAPI validation is not run here; Documentation owns it.
+
+To run the same logic locally, install [Gitleaks](https://github.com/gitleaks/gitleaks)
+and [OSV-Scanner](https://github.com/google/osv-scanner):
+
+```bash
+gitleaks git --redact --log-opts="origin/main..HEAD"
+osv-scanner scan source -L package-lock.json -L tools/lint/package-lock.json
+```
+
+To bump the gates, change the SHA in `gates.yml` to a newer Automation commit.
+
+**GitHub-native security features are a different mechanism.** Secret
+scanning, push protection and Dependabot security updates are repository
+settings; they cannot be required status checks and are not configured by this
+workflow. Checked with `gh api repos/House-Hold-Hub/Frontend` on 2026-10-16,
+`security_and_analysis` reports secret scanning, secret scanning non-provider
+patterns, push protection, validity checks and Dependabot security updates all
+`disabled`. The adoption of these gates did not enable them; that is a
+repository-administrator decision. Until then the two CI gates are the only
+automated coverage, and a secret pushed straight to a branch is detected only
+once a pull request is opened. Action versions in `ci.yml` and `contract.yml`
+(`@v4`) are not SHA-pinned, which is out of scope here.
+
 ### Required checks for `main`
 
 Branch protection on `main` requires a pull request (no approving reviews
 required), applies to administrators, and requires these status-check contexts
-before merging: `lint`, `typecheck`, `test`, `build` and `contract-drift`.
+before merging: `lint`, `typecheck`, `test`, `build` and `contract-drift`,
+plus the security gates `Secret scan / scan` and `Dependency security / scan`
+(see above; confirm the published names with
+`gh api repos/House-Hold-Hub/Frontend/commits/<sha>/check-runs`).
 The contexts are the bare job names as GitHub reports them; the
 `CI / ` and `Contract drift / ` prefixes in the Actions UI are display-only and
 must not be used. Renaming a job changes its context and requires updating the

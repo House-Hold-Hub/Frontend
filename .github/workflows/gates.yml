@@ -1,0 +1,30 @@
+name: Gates
+
+# Shared security gates from House-Hold-Hub/Automation (Automation#2), pinned to the
+# commit SHA of Automation main that merged PR #6. Never reference a branch or a moving tag.
+# Published check names: "Secret scan / scan" and "Dependency security / scan".
+# No path filters: these jobs are required status checks and must always report.
+# Existing lint/typecheck/test/build (ci.yml) and contract-drift (contract.yml) are untouched.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  # Gitleaks over the commits the pull request adds.
+  secret-scan:
+    name: Secret scan
+    uses: House-Hold-Hub/Automation/.github/workflows/secret-scan.yml@5eeae49dfbef5c30fadb4d2ab8a83db068c01488 # Automation main
+
+  # OSV-Scanner over the npm lockfiles; fails on any known vulnerability.
+  # tools/contract has no lockfile, so only these two exist.
+  dependency-security:
+    name: Dependency security
+    uses: House-Hold-Hub/Automation/.github/workflows/dependency-security.yml@5eeae49dfbef5c30fadb4d2ab8a83db068c01488 # Automation main
+    with:
+      lockfiles: |
+        package-lock.json
+        tools/lint/package-lock.json
