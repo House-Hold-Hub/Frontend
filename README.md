@@ -50,6 +50,52 @@ missing, hand-modified, or stale relative to the lock.
 5. Commit the lock file and `src/contract/` together. Breaking contract
    changes need Frontend review per ADR-014.
 
+## API client
+
+`src/api/` is the session/CSRF-aware HTTP client (ADR-011, ADR-014, security
+model). Request and response types come from `src/contract/`; nothing in the
+contract is restated by hand, so `client.request('get', '/not-in-contract')`
+does not compile.
+
+```ts
+const api = createConfiguredApiClient({ onSessionLost: () => navigateToSignIn() });
+const tasks = await api.request('get', '/households/{household_id}/tasks', {
+  pathParams: { household_id },
+  query: { page: 1 },
+});
+```
+
+- **Session and CSRF.** The session cookie is HttpOnly and sent `same-origin`;
+  the client never reads it. Before the first unsafe request it calls
+  `getCsrfToken` (`GET /auth/csrf`), keeps the token in memory only, and sends
+  `X-CSRFToken` on every unsafe request, public ones (login, signup, password
+  reset, invitation exchange) included. The token is discarded after any
+  successful unsafe `/auth/*` call (session rotation), on 401, and after a 403
+  on a write, so the next write starts from a fresh bootstrap.
+- **Errors.** `ApiError.kind`: `session-expired` (401 on a protected
+  operation, also calls `onSessionLost` once per outage), `unauthorized` (401 on
+  a public operation such as bad login credentials), `forbidden` (403),
+  `not-found` (404 for nonexistent *and* out-of-scope, indistinguishable),
+  `validation` (400, with `fields`), `conflict`, `rate-limited`, `server`,
+  `network`, `aborted`, `protocol`. Server `message` text is never surfaced.
+- **Retries.** Only `GET` is retried (network errors, 502/503/504, backoff,
+  default 2 retries). Writes are sent exactly once and never replayed.
+- **Redaction.** Errors and diagnostics carry the OpenAPI path *template*
+  (`/households/{household_id}`), never URLs, query strings, fragments, bodies,
+  headers, cookies, CSRF values or verifiers. The optional `diagnostics` sink
+  receives allowlisted fields only; the client itself never writes to the
+  console. `redactSensitive` scrubs free-form values for third-party error
+  reporters. Callers must still keep invitation/reset verifiers (URL fragments)
+  out of their own logging: read once, POST in the body, discard.
+- **Base URL.** `VITE_API_BASE_URL` is either empty (same origin, the default)
+  or exactly the page's own origin; credentials, query, fragment, a path, or a
+  different origin throw `ApiConfigError` when the client is created. The API
+  path `/api/v1` comes from the contract's `servers` entry and is added by the
+  client. A cross-origin API needs the CORS/credential review required by the
+  security model first; note that the `.env.example` value
+  (`http://localhost:8000`) is cross-origin for the Vite dev server and is
+  refused until a same-origin dev setup (for example a dev proxy) exists.
+
 ## Testing and CI
 
 Component tests use Vitest with React Testing Library in jsdom; Jest is not
