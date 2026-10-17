@@ -63,7 +63,7 @@ describe('VerifyEmailPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('This verification link is invalid or has expired.');
     await userEvent.click(screen.getByRole('button', { name: 'Send a new verification email' }));
 
-    expect(await screen.findByText(/The email is on its way/)).toBeInTheDocument();
+    expect(await screen.findByText('We sent a new verification email. It can take a few minutes to arrive.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Send a new verification email' })).not.toBeInTheDocument();
     expect(requests().filter((r) => r === VERIFY)).toHaveLength(1);
   });
@@ -75,10 +75,10 @@ describe('VerifyEmailPage', () => {
     });
 
     await userEvent.click(await screen.findByRole('button', { name: 'Send a new verification email' }));
-    expect(await screen.findByText('We could not send the email. Try again in a moment.')).toBeInTheDocument();
+    expect(await screen.findByText('We could not send a new verification email. Try again in a moment.')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Send a new verification email' }));
-    expect(await screen.findByText(/The email is on its way/)).toBeInTheDocument();
+    expect(await screen.findByText('We sent a new verification email. It can take a few minutes to arrive.')).toBeInTheDocument();
   });
 
   it('sends a signed-out user to log in before resending', async () => {

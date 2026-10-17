@@ -24,7 +24,7 @@ export function ResendVerification({ api }: { api: ApiClient }) {
     setState({ kind: 'sending' });
     try {
       const { delivery } = await api.request('post', '/auth/email/resend-verification');
-      setState({ kind: 'sent', ...describeDelivery(delivery.status) });
+      setState({ kind: 'sent', ...describeDelivery(delivery.status, 'a new verification email') });
     } catch (error) {
       const kind = isApiError(error) ? error.kind : 'unexpected';
       if (kind === 'session-expired') setState({ kind: 'signed-out' });

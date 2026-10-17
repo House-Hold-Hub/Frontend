@@ -1,13 +1,13 @@
 import { useId, useState, type FormEvent } from 'react';
 import { isApiError, type ApiClient } from '../api';
 import styles from './Auth.module.css';
-import { describeDelivery } from './delivery';
+import { describeDelivery, type DeliveryStatus } from './delivery';
 import { LOGIN_PATH } from './paths';
 
 type State =
   | { kind: 'editing' }
   | { kind: 'sending' }
-  | { kind: 'sent'; message: string; canRetry: boolean }
+  | { kind: 'sent'; status: DeliveryStatus; message: string; canRetry: boolean }
   | { kind: 'invalid' }
   | { kind: 'signed-out' }
   | { kind: 'reauthenticate' }
@@ -20,6 +20,9 @@ type State =
  * to the new one is opened in this same session while the login is still
  * recent, which is why the success text tells the user to open it promptly
  * in this browser.
+ *
+ * The response text names the address captured at submit time, never the live
+ * field value, which the user may edit while the request is in flight.
  */
 export function ChangeEmailPage({ api }: { api: ApiClient }) {
   const [state, setState] = useState<State>({ kind: 'editing' });
@@ -29,10 +32,15 @@ export function ChangeEmailPage({ api }: { api: ApiClient }) {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const submitted = newEmail.trim();
     setState({ kind: 'sending' });
     try {
-      const { delivery } = await api.request('post', '/auth/email/change', { body: { new_email: newEmail.trim() } });
-      setState({ kind: 'sent', ...describeDelivery(delivery.status) });
+      const { delivery } = await api.request('post', '/auth/email/change', { body: { new_email: submitted } });
+      setState({
+        kind: 'sent',
+        status: delivery.status,
+        ...describeDelivery(delivery.status, `a confirmation link to ${submitted}`),
+      });
     } catch (error) {
       const kind = isApiError(error) ? error.kind : 'unexpected';
       if (kind === 'validation') setState({ kind: 'invalid' });
@@ -50,11 +58,13 @@ export function ChangeEmailPage({ api }: { api: ApiClient }) {
       <main className={styles.page}>
         <h1 className={styles.title}>Change your email</h1>
         <p className={styles.message} role="status">
-          We sent a confirmation link to {newEmail.trim()}. {state.message}
+          {state.message}
         </p>
         <p className={styles.message}>
-          Your current address stays in use until you confirm. Open the link in this browser soon: it only works in
-          this session, shortly after you log in.
+          Your current address stays in use until you confirm the new one.
+          {state.status === 'failed'
+            ? null
+            : ' When the link arrives, open it in this browser soon: it only works in this session, shortly after you log in.'}
         </p>
         {state.canRetry ? (
           <p className={styles.actions}>

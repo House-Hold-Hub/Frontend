@@ -1,8 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
-import { errorBody, jsonResponse } from '../test/fakeFetch';
-import { delivery, routedApi } from '../test/apiRoutes';
+import { describe, expect, it, vi } from 'vitest';
+import { createApiClient } from '../api';
+import { createFakeFetch, errorBody, jsonResponse, noSleep, withCsrf } from '../test/fakeFetch';
+import { delivery, PAGE_ORIGIN, routedApi } from '../test/apiRoutes';
 import { ChangeEmailPage } from './ChangeEmailPage';
 
 const CHANGE = 'POST /auth/email/change';
@@ -20,20 +21,53 @@ describe('ChangeEmailPage', () => {
     const { calls } = await requestChange({ [CHANGE]: jsonResponse(202, delivery('provider_accepted')) }, ' new@example.test ');
 
     expect(await screen.findByRole('status')).toHaveTextContent(
-      'We sent a confirmation link to new@example.test. The email is on its way.',
+      'We sent a confirmation link to new@example.test. It can take a few minutes to arrive.',
     );
-    expect(screen.getByText(/Open the link in this browser soon/)).toBeInTheDocument();
+    expect(screen.getByText(/open it in this browser soon/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
     const post = calls.find((c) => `${c.method} ${c.path}` === CHANGE);
     expect(JSON.parse(post?.body ?? '')).toEqual({ new_email: 'new@example.test' });
     expect(post?.headers.get('X-CSRFToken')).toBe('csrf-1');
   });
 
-  it('offers a retry when the provider did not accept the email', async () => {
-    await requestChange({ [CHANGE]: jsonResponse(202, delivery('failed')) });
+  it.each([
+    ['pending', 'We are still sending a confirmation link to new@example.test.', true],
+    ['unknown', 'We could not confirm whether a confirmation link to new@example.test was sent.', true],
+    ['failed', 'We could not send a confirmation link to new@example.test.', false],
+  ] as const)(
+    'on a %s delivery does not claim the link was sent and offers a retry',
+    async (status, text, linkMayArrive) => {
+      await requestChange({ [CHANGE]: jsonResponse(202, delivery(status)) });
 
-    expect(await screen.findByRole('status')).toHaveTextContent('We could not send the email.');
-    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
-    expect(screen.getByLabelText('New email address')).toHaveValue('new@example.test');
+      const message = await screen.findByRole('status');
+      expect(message).toHaveTextContent(text);
+      expect(message).not.toHaveTextContent('We sent');
+      expect(screen.queryByText(/open it in this browser soon/) !== null).toBe(linkMayArrive);
+
+      await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+      expect(screen.getByLabelText('New email address')).toHaveValue('new@example.test');
+    },
+  );
+
+  it('names the address that was submitted even if the field is edited while the request is pending', async () => {
+    let answer: (reply: Response) => void = () => {};
+    const fake = createFakeFetch(
+      withCsrf(() => new Promise<Response>((resolve) => (answer = resolve))),
+    );
+    render(<ChangeEmailPage api={createApiClient({ fetch: fake.fetch, pageOrigin: PAGE_ORIGIN, sleep: noSleep })} />);
+    const field = screen.getByLabelText('New email address');
+
+    await userEvent.type(field, 'first@example.test');
+    await userEvent.click(screen.getByRole('button', { name: 'Send confirmation link' }));
+    await vi.waitFor(() => expect(fake.calls.map((c) => `${c.method} ${c.path}`)).toContain(CHANGE));
+    await userEvent.clear(field);
+    await userEvent.type(field, 'second@example.test');
+    answer(jsonResponse(202, delivery('provider_accepted')));
+
+    const message = await screen.findByRole('status');
+    expect(message).toHaveTextContent('We sent a confirmation link to first@example.test.');
+    expect(message).not.toHaveTextContent('second@example.test');
+    expect(JSON.parse(fake.calls.at(-1)?.body ?? '')).toEqual({ new_email: 'first@example.test' });
   });
 
   it('marks the field invalid on 400', async () => {
